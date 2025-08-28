@@ -1,6 +1,6 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: config-file-cluster
+name: local-dev-cluster
 nodes:
 - role: control-plane
   kubeadmConfigPatches:

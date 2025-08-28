@@ -27,7 +27,9 @@ func NewClusterResource() resource.Resource {
 }
 
 // ClusterResource defines the resource implementation.
-type ClusterResource struct{}
+type ClusterResource struct {
+	providerData *ProviderData
+}
 
 // ClusterResourceModel describes the resource data model.
 type ClusterResourceModel struct {
@@ -102,7 +104,21 @@ func (r *ClusterResource) Schema(ctx context.Context, req resource.SchemaRequest
 }
 
 func (r *ClusterResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	// Provider-level data can be retrieved from req.ProviderData if needed
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
+	providerData, ok := req.ProviderData.(*ProviderData)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *ProviderData, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	r.providerData = providerData
 }
 
 func (r *ClusterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -187,7 +203,7 @@ func (r *ClusterResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	// Execute kind create command
-	cmd := exec.CommandContext(ctx, "kind", args...)
+	cmd := r.buildKindCommand(ctx, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -314,7 +330,7 @@ func (r *ClusterResource) Delete(ctx context.Context, req resource.DeleteRequest
 	})
 
 	// Execute kind delete command
-	cmd := exec.CommandContext(ctx, "kind", "delete", "cluster", "--name", clusterName)
+	cmd := r.buildKindCommand(ctx, "delete", "cluster", "--name", clusterName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Log the error but don't fail deletion if cluster doesn't exist
@@ -339,6 +355,14 @@ func (r *ClusterResource) ImportState(ctx context.Context, req resource.ImportSt
 
 // Helper functions
 
+func (r *ClusterResource) buildKindCommand(ctx context.Context, args ...string) *exec.Cmd {
+	// Add runtime provider flag if configured
+	if r.providerData != nil && r.providerData.Runtime == "podman" {
+		//	args = append([]string{"--provider=podman"}, args...)
+	}
+	return exec.CommandContext(ctx, "kind", args...)
+}
+
 func (r *ClusterResource) validateKindConfig(configPath string) error {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -359,7 +383,7 @@ func (r *ClusterResource) validateKindConfig(configPath string) error {
 }
 
 func (r *ClusterResource) clusterExists(ctx context.Context, name string) (bool, error) {
-	cmd := exec.CommandContext(ctx, "kind", "get", "clusters")
+	cmd := r.buildKindCommand(ctx, "get", "clusters")
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("failed to list clusters: %w", err)
@@ -375,7 +399,7 @@ func (r *ClusterResource) clusterExists(ctx context.Context, name string) (bool,
 }
 
 func (r *ClusterResource) getKubeconfig(ctx context.Context, name string) (string, error) {
-	cmd := exec.CommandContext(ctx, "kind", "get", "kubeconfig", "--name", name)
+	cmd := r.buildKindCommand(ctx, "get", "kubeconfig", "--name", name)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get kubeconfig: %w", err)
@@ -384,7 +408,7 @@ func (r *ClusterResource) getKubeconfig(ctx context.Context, name string) (strin
 }
 
 func (r *ClusterResource) getClusterEndpoint(ctx context.Context, name string) (string, error) {
-	cmd := exec.CommandContext(ctx, "kind", "get", "kubeconfig", "--name", name)
+	cmd := r.buildKindCommand(ctx, "get", "kubeconfig", "--name", name)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get kubeconfig for endpoint: %w", err)

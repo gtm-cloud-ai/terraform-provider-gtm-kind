@@ -1,13 +1,15 @@
 terraform {
   required_providers {
     kind = {
-      source = "gtm-cloud-ai/kind"
+      source = "gtm-cloud-ai/gtm-kind"
       version = "~> 1.0"
     }
   }
 }
 
-provider "kind" {}
+provider "kind" {
+    runtime = "podman"
+}
 
 # Kind cluster using external configuration file
 resource "kind_cluster" "example" {

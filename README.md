@@ -7,6 +7,8 @@ This Terraform provider allows you to manage Kubernetes Kind (Kubernetes in Dock
 - Create and manage Kind clusters
 - Support for custom Kind configuration files (`kind-config.yaml`)
 - Inline Kind configuration support
+- Container runtime selection (Docker or Podman)
+- Automatic container runtime detection
 - Automatic cluster cleanup on destroy
 - Kubeconfig and endpoint outputs
 - Support for custom node images
@@ -27,13 +29,17 @@ This Terraform provider allows you to manage Kubernetes Kind (Kubernetes in Dock
 terraform {
   required_providers {
     kind = {
-      source = "gtm-cloud-ai/kind"
+      source = "gtm-cloud-ai/terraform-provider-gtm-kind"
       version = "~> 1.0"
     }
   }
 }
 
-provider "kind" {}
+provider "kind" {
+  # Optional: specify container runtime (docker or podman)
+  # If not specified, the provider will auto-detect the available runtime
+  runtime = "docker"  # or "podman"
+}
 ```
 
 ### Building from Source
@@ -108,6 +114,38 @@ resource "kind_cluster" "example" {
 - `kubeconfig` (String, Sensitive) - Kubeconfig for the created cluster.
 - `endpoint` (String) - Kubernetes API server endpoint.
 
+## Provider Configuration
+
+The provider supports the following configuration options:
+
+### Arguments
+
+- `runtime` (Optional, String) - Container runtime to use for Kind clusters. Valid values are `"docker"` and `"podman"`. If not specified, the provider will automatically detect the available runtime, preferring podman over docker if both are available.
+
+### Examples
+
+#### Using Docker (explicit)
+```hcl
+provider "kind" {
+  runtime = "docker"
+}
+```
+
+#### Using Podman (explicit)
+```hcl
+provider "kind" {
+  runtime = "podman"
+}
+```
+
+#### Auto-detection (default behavior)
+```hcl
+provider "kind" {
+  # runtime will be auto-detected
+  # podman is preferred if both docker and podman are available
+}
+```
+
 ## Examples
 
 Check the `examples/` directory for more comprehensive examples:
@@ -115,6 +153,8 @@ Check the `examples/` directory for more comprehensive examples:
 - `examples/basic/` - Basic cluster with inline configuration
 - `examples/with-config-file/` - Cluster using external configuration file
 - `examples/multi-node/` - Multi-node cluster with custom networking
+- `examples/podman/` - Cluster using podman as container runtime
+- `examples/auto-detect/` - Cluster using auto-detected container runtime
 
 ## Development
 
